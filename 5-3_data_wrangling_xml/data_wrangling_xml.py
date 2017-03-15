@@ -99,7 +99,7 @@ for country in document.iterfind('country'):
     # 'country_population' and 'percentage' attribute associated with ethnic group
     for egroup in country.iterfind('ethnicgroup'):
         egroup_percent = float(egroup.attrib['percentage']) * .01
-        ethnic_population = floor(country_population * egroup_percent)
+        ethnic_population = country_population * egroup_percent
 
         # Store this computed population in the 'ethnicgroup_populations' dictionary
         if egroup.text in ethnicgroup_populations.keys():
@@ -120,6 +120,9 @@ df_ethnic_populations.sort_values('population',ascending=False,inplace=True)
 # Create a top 10 DataFrame and adjust index to match ranking
 top_10_ethnic_groups = df_ethnic_populations.head(10)
 top_10_ethnic_groups.index = range(1,11)
+
+# Round population values to whole numbers
+top_10_ethnic_groups.population = top_10_ethnic_groups.population.apply(floor)
 
 
 # -----------------------------------------------------

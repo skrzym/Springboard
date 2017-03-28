@@ -1,9 +1,8 @@
 import pandas as pd
 from math import floor
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree
 
-
-document = ET.parse( './data/mondial_database.xml' )
+document = ElementTree.parse('./data/mondial_database.xml')
 
 # -----------------------------------------------------
 # 10 Countries with the lowest infant mortality rates
@@ -24,21 +23,20 @@ for country in document.iterfind('country'):
         imr = float(country.find('infant_mortality').text)
     else:
         imr = None
-    # Add a dict to our 'imr_list' containing the country('name') and infanty_mortality_rate('imr')
+    # Add a dict to our 'imr_list' containing the country('name') and infant_mortality_rate('imr')
     imr_list.append({'country': name, 'infant_mortality_rate': imr})
 
 # convert list of dicts to DataFrame
 df_imr = pd.DataFrame.from_records(imr_list)
 
 # sort by population and make a top 10 df using '.head(10)'
-top_10_imr = df_imr.sort_values('infant_mortality_rate',ascending=True).head(10)
+top_10_imr = df_imr.sort_values('infant_mortality_rate', ascending=True).head(10)
 
 # reindex top 10 df to show index as ranking from 1-10
-top_10_imr.index = range(1,11)
-
+top_10_imr.index = range(1, 11)
 
 # -----------------------------------------------------
-# 10 Cities with largest populaiton
+# 10 Cities with largest population
 #
 # The approach here is to go through each country and find all listed population data.
 # Once found, only pick out the latest year's data and compile it into a dictionary containing
@@ -50,25 +48,25 @@ city_populations = []
 # Extract population information
 for element in document.iterfind('country'):
     for city in element.iterfind('city'):
-        # Create a dict to store all poplulation data found for a city
+        # Create a dict to store all population data found for a city
         pop_dict = {}
         for pop in city.iterfind('population'):
             pop_dict[int(pop.attrib['year'])] = int(pop.text)
         # Pick the city population value with the latest year
         latest_population_count = pop_dict[max(pop_dict.keys())] if pop_dict else None
         # Add a dict to our 'city_populations' list containing the country, city, and population value
-        city_populations.append({'country':element.find('name').text,'city':city.find('name').text,'population':latest_population_count})
+        city_populations.append({'country': element.find('name').text, 'city': city.find('name').text,
+                                 'population': latest_population_count})
 
 # convert list of dicts to DataFrame and reorder the columns for clarity
 df_city_pop = pd.DataFrame.from_records(city_populations)
-df_city_pop = df_city_pop[['country','city','population']]
+df_city_pop = df_city_pop[['country', 'city', 'population']]
 
 # sort by population and make a top 10 df using '.head(10)'
 top_10_city_populations = df_city_pop.sort_values('population', ascending=False).head(10)
 
 # reindex top 10 df to show index as ranking from 1-10
-top_10_city_populations.index = range(1,11)
-
+top_10_city_populations.index = range(1, 11)
 
 # -----------------------------------------------------
 # 10 Ethnic groups with the largest overall populations
@@ -108,22 +106,21 @@ for country in document.iterfind('country'):
             ethnicgroup_populations[egroup.text] = ethnic_population
 
 # Create a DataFrame using the 'ethnicgroup_populations' dictionary
-df_ethnic_populations = pd.DataFrame.from_dict(ethnicgroup_populations,orient='index')
+df_ethnic_populations = pd.DataFrame.from_dict(ethnicgroup_populations, orient='index')
 
 # We use reset_index to put the ethnic groups into a column and then rename the columns for clarity
 df_ethnic_populations.reset_index(inplace=True)
-df_ethnic_populations.columns = ['ethnicgroup','population']
+df_ethnic_populations.columns = ['ethnicgroup', 'population']
 
 # Sort the DataFrame by 'population'
-df_ethnic_populations.sort_values('population',ascending=False,inplace=True)
+df_ethnic_populations.sort_values('population', ascending=False, inplace=True)
 
 # Create a top 10 DataFrame and adjust index to match ranking
 top_10_ethnic_groups = df_ethnic_populations.head(10)
-top_10_ethnic_groups.index = range(1,11)
+top_10_ethnic_groups.index = range(1, 11)
 
 # Round population values to whole numbers
 top_10_ethnic_groups.population = top_10_ethnic_groups.population.apply(floor)
-
 
 # -----------------------------------------------------
 # Name and country of a) longest river, b) largest lake, and c) airport at highest elevation
@@ -134,7 +131,7 @@ countries = {}
 for country in document.iterfind('country'):
     countries[country.attrib['car_code']] = country.find('name').text
 
-#A
+# A
 rivers = []
 for river in document.iterfind('river'):
     name = river.find('name').text
@@ -157,11 +154,10 @@ for river in document.iterfind('river'):
         'length': length
     })
 
-df_rivers = pd.DataFrame.from_records(rivers).sort_values('length',ascending=False).reset_index(drop=True)
+df_rivers = pd.DataFrame.from_records(rivers).sort_values('length', ascending=False).reset_index(drop=True)
 longest_river = df_rivers.iloc[0]
 
-
-#B
+# B
 lakes = []
 for lake in document.iterfind('lake'):
     name = lake.find('name').text
@@ -184,11 +180,10 @@ for lake in document.iterfind('lake'):
         'area': area
     })
 
-df_lakes = pd.DataFrame.from_records(lakes).sort_values('area',ascending=False).reset_index(drop=True)
+df_lakes = pd.DataFrame.from_records(lakes).sort_values('area', ascending=False).reset_index(drop=True)
 largest_lake = df_lakes.iloc[0]
 
-
-#C
+# C
 airports = []
 for airport in document.iterfind('airport'):
     name = airport.find('name').text
@@ -207,5 +202,5 @@ for airport in document.iterfind('airport'):
         'elevation': elevation
     })
 
-df_airports = pd.DataFrame.from_records(airports).sort_values('elevation',ascending=False).reset_index(drop=True)
+df_airports = pd.DataFrame.from_records(airports).sort_values('elevation', ascending=False).reset_index(drop=True)
 highest_airport = df_airports.iloc[0]

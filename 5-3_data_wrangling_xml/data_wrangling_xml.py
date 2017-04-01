@@ -20,16 +20,16 @@ def element_exists(element, prop):
 
 # Generate dictionary with name:imr pairs
 imr = dict(
-    (element_find(country,'name'),  # Extract country's name
-     float(element_find(country,'infant_mortality')))  # Extract infant mortality rate
+    (element_find(country, 'name'),  # Extract country's name
+     float(element_find(country, 'infant_mortality')))  # Extract infant mortality rate
     for country in document.iterfind('country')
-    if element_exists(country,'infant_mortality')  # Filter out countries with no imr
+    if element_exists(country, 'infant_mortality')  # Filter out countries with no imr
 )
 
 # convert dictionary to DataFrame and pull name column out from index
-df_imr = pd.DataFrame.from_dict(imr,orient='index')
+df_imr = pd.DataFrame.from_dict(imr, orient='index')
 df_imr.reset_index(inplace=True)
-df_imr.columns = ['name','infant_mortality_rate']
+df_imr.columns = ['name', 'infant_mortality_rate']
 
 # sort by infant_mortality_rate and make a top 10 df using '.head(10)'
 top_10_imr = df_imr.sort_values('infant_mortality_rate', ascending=True).head(10)
@@ -47,8 +47,8 @@ top_10_imr.index = range(1, 11)
 city_populations = []
 
 # Extract population information
-for element in document.iterfind('country'):
-    for city in element.iterfind('city'):
+for country in document.iterfind('country'):
+    for city in country.iterfind('city'):
         # Create a dict to store all population data found for a city
         pop_dict = {}
         for pop in city.iterfind('population'):
@@ -56,7 +56,7 @@ for element in document.iterfind('country'):
         # Pick the city population value with the latest year
         latest_population_count = pop_dict[max(pop_dict.keys())] if pop_dict else None
         # Add a dict to our 'city_populations' list containing the country, city, and population value
-        city_populations.append({'country': element.find('name').text, 'city': city.find('name').text,
+        city_populations.append({'country': country.find('name').text, 'city': city.find('name').text,
                                  'population': latest_population_count})
 
 # convert list of dicts to DataFrame and reorder the columns for clarity

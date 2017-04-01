@@ -10,31 +10,32 @@ document = ElementTree.parse('./data/mondial_database.xml')
 # The approach here is to go through each country and if it has an 'infant_mortality' tag,
 # store that data as a float in a dictionary with the country's name as the key.
 
-# Create a list to hold dicts containing {country, infant_mortality_rate}
-imr_list = []
 
-# Extract infant_mortality_rate information
-for country in document.iterfind('country'):
-    # Store the country's name
-    name = country.find('name').text
+def element_find(element, prop):
+    return element.find(prop).text
 
-    # If 'infant_mortality' exists for this country, store its value as a 'float' otherwise as 'None'
-    if country.find('infant_mortality') is not None:
-        imr = float(country.find('infant_mortality').text)
-    else:
-        imr = None
-    # Add a dict to our 'imr_list' containing the country('name') and infant_mortality_rate('imr')
-    imr_list.append({'country': name, 'infant_mortality_rate': imr})
 
-# convert list of dicts to DataFrame
-df_imr = pd.DataFrame.from_records(imr_list)
+def element_exists(element, prop):
+    return element.find(prop) is not None
 
-# sort by population and make a top 10 df using '.head(10)'
+# Generate dictionary with name:imr pairs
+imr = dict(
+    (element_find(country,'name'),  # Extract country's name
+     float(element_find(country,'infant_mortality')))  # Extract infant mortality rate
+    for country in document.iterfind('country')
+    if element_exists(country,'infant_mortality')  # Filter out countries with no imr
+)
+
+# convert dictionary to DataFrame and pull name column out from index
+df_imr = pd.DataFrame.from_dict(imr,orient='index')
+df_imr.reset_index(inplace=True)
+df_imr.columns = ['name','infant_mortality_rate']
+
+# sort by infant_mortality_rate and make a top 10 df using '.head(10)'
 top_10_imr = df_imr.sort_values('infant_mortality_rate', ascending=True).head(10)
 
 # reindex top 10 df to show index as ranking from 1-10
 top_10_imr.index = range(1, 11)
-
 # -----------------------------------------------------
 # 10 Cities with largest population
 #

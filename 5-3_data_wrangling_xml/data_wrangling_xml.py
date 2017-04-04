@@ -26,48 +26,37 @@ imr = dict(
     if element_exists(country, 'infant_mortality')  # Filter out countries with no imr
 )
 
-# convert dictionary to DataFrame and pull name column out from index
-df_imr = pd.DataFrame.from_dict(imr, orient='index')
-df_imr.reset_index(inplace=True)
-df_imr.columns = ['name', 'infant_mortality_rate']
 
-# sort by infant_mortality_rate and make a top 10 df using '.head(10)'
-top_10_imr = df_imr.sort_values('infant_mortality_rate', ascending=True).head(10)
+def make_top_10(data, col_names, sort_by, asc=False):
+    df = pd.DataFrame.from_dict(data, orient='index')
+    df.reset_index(inplace=True)
+    df.columns = col_names
+    df.sort_values(sort_by, ascending=asc, inplace=True)
+    df = df.head(10)
+    df.index = range(1, 11)
+    return df
 
-# reindex top 10 df to show index as ranking from 1-10
-top_10_imr.index = range(1, 11)
+top_10_imr = make_top_10(imr, ['name', 'infant_mortality_rate'], 'infant_mortality_rate', True)
+
 # -----------------------------------------------------
 # 10 Cities with largest population
 #
-# The approach here is to go through each country and find all listed population data.
+# The approach here is to go through each city and find all listed population data.
 # Once found, only pick out the latest year's data and compile it into a dictionary containing
-# the country, city, and population value.
+# the city name and population value.
 
-# Create a list to hold dicts containing {country, city, population}
-city_populations = []
 
-# Extract population information
-for country in document.iterfind('country'):
-    for city in country.iterfind('city'):
-        # Create a dict to store all population data found for a city
-        pop_dict = {}
-        for pop in city.iterfind('population'):
-            pop_dict[int(pop.attrib['year'])] = int(pop.text)
-        # Pick the city population value with the latest year
-        latest_population_count = pop_dict[max(pop_dict.keys())] if pop_dict else None
-        # Add a dict to our 'city_populations' list containing the country, city, and population value
-        city_populations.append({'country': country.find('name').text, 'city': city.find('name').text,
-                                 'population': latest_population_count})
+def get_max_population(element):
+    return max((int(population.attrib['year']), int(population.text))
+               for population in element.iterfind('population'))[1]
 
-# convert list of dicts to DataFrame and reorder the columns for clarity
-df_city_pop = pd.DataFrame.from_records(city_populations)
-df_city_pop = df_city_pop[['country', 'city', 'population']]
-
-# sort by population and make a top 10 df using '.head(10)'
-top_10_city_populations = df_city_pop.sort_values('population', ascending=False).head(10)
-
-# reindex top 10 df to show index as ranking from 1-10
-top_10_city_populations.index = range(1, 11)
+city_populations = dict(
+    (city.find('name').text, get_max_population(city))
+    for country in document.iterfind('country')
+    for city in country.iterfind('city')
+    if element_exists(city, 'population')
+)
+top_10_city_populations = make_top_10(city_populations, ['city', 'population'], 'population')
 
 # -----------------------------------------------------
 # 10 Ethnic groups with the largest overall populations
@@ -116,12 +105,12 @@ df_ethnic_populations.columns = ['ethnicgroup', 'population']
 # Sort the DataFrame by 'population'
 df_ethnic_populations.sort_values('population', ascending=False, inplace=True)
 
-# Create a top 10 DataFrame and adjust index to match ranking
-top_10_ethnic_groups = df_ethnic_populations.head(10)
+# Create a top 10 DataFrame
+top_10_ethnic_groups = pd.concat([
+    df_ethnic_populations.loc[:, 'ethnicgroup'].head(10),
+    df_ethnic_populations.loc[:, 'population'].apply(floor).head(10)
+    ], axis=1)
 top_10_ethnic_groups.index = range(1, 11)
-
-# Round population values to whole numbers
-top_10_ethnic_groups.population = top_10_ethnic_groups.population.apply(floor)
 
 # -----------------------------------------------------
 # Name and country of a) longest river, b) largest lake, and c) airport at highest elevation

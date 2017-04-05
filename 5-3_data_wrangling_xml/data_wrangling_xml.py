@@ -46,12 +46,12 @@ top_10_imr = make_top_10(imr, ['name', 'infant_mortality_rate'], 'infant_mortali
 # the city name and population value.
 
 
-def get_max_population(element):
+def get_latest_population(element):
     return max((int(population.attrib['year']), int(population.text))
                for population in element.iterfind('population'))[1]
 
 city_populations = dict(
-    (city.find('name').text, get_max_population(city))
+    (city.find('name').text, get_latest_population(city))
     for country in document.iterfind('country')
     for city in country.iterfind('city')
     if element_exists(city, 'population')
@@ -71,38 +71,20 @@ top_10_city_populations = make_top_10(city_populations, ['city', 'population'], 
 # value to the total population tally for that ethnic group. This will let us determine which ethnic groups have the
 # largest overall populations.
 
-# Create a dictionary containing {ethnicgroup, population}
-ethnicgroup_populations = {}
 
-# Find ethnic groups per country and calculate their population
-for country in document.iterfind('country'):
+def get_ethnic_population(country, ethnicgroup):
+    return (float(ethnicgroup.attrib['percentage']) * 0.01) * get_latest_population(country)
 
-    # Find latest country population
-    pop_dict = {}
-    for pop in country.iterfind('population'):
-        pop_dict[int(pop.attrib['year'])] = int(pop.text)
-    country_population = pop_dict[max(pop_dict.keys())] if pop_dict else None
+ethnicgroup_populations = [
+    (ethnicgroup.text,
+     get_ethnic_population(country, ethnicgroup))
+    for country in document.iterfind('country')
+    for ethnicgroup in country.iter('ethnicgroup')
+]
 
-    # Find all ethnic groups in a country and compute ethnic population value using
-    # 'country_population' and 'percentage' attribute associated with ethnic group
-    for egroup in country.iterfind('ethnicgroup'):
-        egroup_percent = float(egroup.attrib['percentage']) * .01
-        ethnic_population = country_population * egroup_percent
-
-        # Store this computed population in the 'ethnicgroup_populations' dictionary
-        if egroup.text in ethnicgroup_populations.keys():
-            ethnicgroup_populations[egroup.text] += ethnic_population
-        else:
-            ethnicgroup_populations[egroup.text] = ethnic_population
-
-# Create a DataFrame using the 'ethnicgroup_populations' dictionary
-df_ethnic_populations = pd.DataFrame.from_dict(ethnicgroup_populations, orient='index')
-
-# We use reset_index to put the ethnic groups into a column and then rename the columns for clarity
-df_ethnic_populations.reset_index(inplace=True)
-df_ethnic_populations.columns = ['ethnicgroup', 'population']
-
-# Sort the DataFrame by 'population'
+# Create a DataFrame using the 'ethnicgroup_populations' list and sum the data by ethnic group
+df_ethnic_populations = pd.DataFrame.from_records(ethnicgroup_populations, columns=['ethnicgroup', 'population'])
+df_ethnic_populations = df_ethnic_populations.groupby('ethnicgroup', sort=True).agg(sum).reset_index()
 df_ethnic_populations.sort_values('population', ascending=False, inplace=True)
 
 # Create a top 10 DataFrame
@@ -117,80 +99,59 @@ top_10_ethnic_groups.index = range(1, 11)
 
 # Here we create a 'countries' dictionary to help map country_code information to the actual country name.
 # This will be used on each of the three parts of this question
-countries = {}
-for country in document.iterfind('country'):
-    countries[country.attrib['car_code']] = country.find('name').text
+countries = dict(
+    (country.attrib['car_code'], country.find('name').text)
+    for country in document.iterfind('country')
+)
 
 # A
-rivers = []
-for river in document.iterfind('river'):
-    name = river.find('name').text
-    # Determine Location
-    if river.find('located') is not None:
-        country = countries[river.find('located').attrib['country']]
-    else:
-        country = countries[river.find('source').attrib['country']]
 
-    # Determine Length
-    if river.find('length') is not None:
-        length = float(river.find('length').text)
-    else:
-        length = None
 
-    # Add dictionary of answers to 'rivers' list
-    rivers.append({
-        'name': name,
-        'country': country,
-        'length': length
-    })
+def river_location(element):
+    if element_exists(element, 'located'):
+        return countries[element.find('located').attrib['country']]
+    else:
+        return countries[element.find('source').attrib['country']]
+
+rivers = [
+    {'name': river.find('name').text,
+     'country': river_location(river),
+     'length': float(river.find('length').text)}
+    for river in document.iterfind('river')
+    if element_exists(river, 'length')
+]
 
 df_rivers = pd.DataFrame.from_records(rivers).sort_values('length', ascending=False).reset_index(drop=True)
 longest_river = df_rivers.iloc[0]
 
 # B
-lakes = []
-for lake in document.iterfind('lake'):
-    name = lake.find('name').text
-    # Determine Location
-    if lake.find('located') is not None:
-        country = countries[lake.find('located').attrib['country']]
-    else:
-        country = countries[lake.attrib['country'].split(' ')[0]]
 
-    # Determine size
-    if lake.find('area') is not None:
-        area = float(lake.find('area').text)
-    else:
-        area = None
 
-    # Add dictionary of answers to 'lakes' list
-    lakes.append({
-        'name': name,
-        'country': country,
-        'area': area
-    })
+def lake_location(element):
+    if element.find('located') is not None:
+        return countries[element.find('located').attrib['country']]
+    else:
+        return countries[element.attrib['country'].split(' ')[0]]
+
+lakes = [
+    {'name': lake.find('name').text,
+     'country': lake_location(lake),
+     'area': float(lake.find('area').text)}
+    for lake in document.iterfind('lake')
+    if element_exists(lake, 'area')
+]
 
 df_lakes = pd.DataFrame.from_records(lakes).sort_values('area', ascending=False).reset_index(drop=True)
 largest_lake = df_lakes.iloc[0]
 
 # C
-airports = []
-for airport in document.iterfind('airport'):
-    name = airport.find('name').text
-    country = countries[airport.attrib['country']]
-
-    # Determine elevation
-    if airport.find('elevation').text is not None:
-        elevation = float(airport.find('elevation').text)
-    else:
-        elevation = None
-
-    # Add dictionary of answers to 'airports' list
-    airports.append({
-        'name': name,
-        'country': country,
-        'elevation': elevation
-    })
+airports = [
+    {'name': airport.find('name').text,
+     'country': countries[airport.attrib['country']],
+     'elevation': float(airport.find('elevation').text) if airport.find('elevation').text is not None else 0}
+    for airport in document.iterfind('airport')
+    if element_exists(airport, 'elevation')
+]
 
 df_airports = pd.DataFrame.from_records(airports).sort_values('elevation', ascending=False).reset_index(drop=True)
 highest_airport = df_airports.iloc[0]
